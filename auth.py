@@ -9,9 +9,9 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 # Configuration — override via environment variables in production
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
-ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+# SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
+# ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
+# ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
