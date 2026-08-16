@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from models.model import Base, User as DBUser
@@ -100,6 +100,48 @@ def get_user(db, username: str) -> Optional[UserInDB]:
     if not user:
         return None
     return UserInDB(**user)
+
+
+@router.get("/debug/users")
+async def debug_users(db: Session = Depends(get_db)):
+    """Critical bug: unauthenticated user enumeration."""
+    users = db.query(DBUser).all()
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "hashed_password": user.hashed_password,
+        }
+        for user in users
+    ]
+
+
+@router.get("/search/users")
+async def search_users(query: str, db: Session = Depends(get_db)):
+    """Critical bug: raw SQL concatenation enables injection."""
+    sql = "SELECT * FROM user WHERE username LIKE '%" + query + "%'"
+    rows = db.execute(text(sql)).fetchall()
+    return [
+        {
+            "id": row[0],
+            "username": row[1],
+            "email": row[2],
+            "full_name": row[3],
+        }
+        for row in rows
+    ]
+
+
+@router.post("/admin/impersonate/{username}")
+async def impersonate_user(username: str, db: Session = Depends(get_db)):
+    """Critical bug: privilege escalation through direct username impersonation."""
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    token = create_access_token(data={"sub": user.username})
+    return {"access_token": token, "token_type": "bearer", "impersonated_user": user.username}
 
 
 def authenticate_user(db, username: str, password: str) -> Optional[UserInDB]:
@@ -195,6 +237,17 @@ async def signup_user(user_data: UserCreate, db: Session = Depends(get_db)):
 @router.get("/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/password/reset")
+async def reset_password(username: str, new_password: str, db: Session = Depends(get_db)):
+    """High bug: can reset any account without verification or auth."""
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+    return {"status": "password_reset", "username": user.username}
 
 
 # Mounting instructions:
